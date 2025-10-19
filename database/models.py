@@ -59,7 +59,8 @@ class Offers(Base):
     __tablename__ = "offers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    item_name: Mapped[str] = mapped_column(String, nullable=False)
+    item_name_message: Mapped[str] = mapped_column(String, nullable=False)
+    item_name_db: Mapped[str] = mapped_column(String, nullable=False)
     item_id: Mapped[int] = mapped_column(ForeignKey(Items.id, ondelete="CASCADE"))
     quantity: Mapped[int] = mapped_column(Integer, nullable=True)
     offer_type: Mapped[OfferType] = mapped_column(Enum(OfferType), nullable=False)

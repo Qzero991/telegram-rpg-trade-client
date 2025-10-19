@@ -6,11 +6,12 @@ from telegram.group_listener import trade_group_listener
 from parser.message_parser import create_request
 from parser.items_parser import items_info_command_printer
 from telegram.tg_client import client, start_client, run_client_forever
-from database.queries import init_db, get_items
+from database.queries import init_db, get_items, insert_offer_data_and_return_id
 from collections import deque
 from rapidfuzz import process, fuzz
-from database.queries import insert_message_data, insert_item_data, clear_messages, insert_offer_data, drop_messages_table_raw, clear_offers, drop_offers
-from database.models import ItemType
+from database.queries import insert_message_data_and_return_id, drop_arbitrage ,clear_offers, insert_item_data, clear_messages, insert_offer_data_and_return_id, drop_messages_table_raw, clear_offers, drop_offers
+from database.models import ItemType, OfferType, CurrencyType
+from logic.arbitrage import arbitrage_finder
 
 
 
@@ -20,7 +21,7 @@ async def message_handler(offer_message_queue):
 
     while True:
         message = await offer_message_queue.get()
-        message_id = await insert_message_data(message)
+        message_id = await insert_message_data_and_return_id(message)
         if not message_id:
             continue
         response = await create_request(message.raw_text)
@@ -34,7 +35,7 @@ async def message_handler(offer_message_queue):
 
 async def find_foreign_key_item_offer_match_and_insert_offer(items_in_db, response, message_id):
     for i in range(len(response)):
-        if isinstance(response[i]["price_for_one"], int):
+        if not isinstance(response[i]["price_for_one"], int):
             continue
         top5 = [None] * 5
         for j in range(len(items_in_db)):
@@ -70,13 +71,33 @@ async def find_foreign_key_item_offer_match_and_insert_offer(items_in_db, respon
             print("СЛИШКОМ МАЛЕНЬКИЙ ПРОЦЕНТ СОВПАДЕНИЯ, ПРЕДМЕТ НЕ БУДЕТ ДОБАВЛЕН")
         else:
             print(top5)
-            await insert_offer_data(response[i], items_in_db[top5[0][1]].id, message_id)
+
+            offer_data_dict = {
+                "id": None,
+                "item_name_message": response[i]['item_name'],
+                "item_name_db": items_in_db[top5[0][1]].item_name,
+                "item_id": items_in_db[top5[0][1]].id,
+                "quantity": response[i]['quantity'],
+                "offer_type": OfferType(response[i]['offer_type']),
+                "currency": CurrencyType(response[i]['currency']),
+                "price_for_one": response[i]['price_for_one'],
+                "message_id": message_id
+            }
+
+            offer_data_dict['id'] = await insert_offer_data_and_return_id(offer_data_dict)
+
+            if not offer_data_dict['id']:
+                continue
+
+            print('ARBITRAGE')
+
+            await arbitrage_finder(offer_data_dict)
+
+
 
 
 
 async def trade_group_message_handler():
-    # await drop_offers()
-    # await drop_messages_table_raw()
     await clear_messages()
     await init_db()
     offer_message_queue = asyncio.Queue()

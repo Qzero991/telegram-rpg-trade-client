@@ -1,7 +1,9 @@
+from gc import set_debug
+
 from database.db_main import engine, Base, session_factory
-from database.models import Items, ItemType, Offers, OfferType, Messages, CurrencyType
+from database.models import Items, ItemType, Offers, OfferType, Messages, CurrencyType, Arbitrage
 from sqlalchemy.exc import IntegrityError, ProgrammingError
-from sqlalchemy import select, delete, text
+from sqlalchemy import select, delete, text, and_
 from datetime import timezone
 import hashlib
 
@@ -40,6 +42,11 @@ async def drop_messages_table_raw():
             print("ТАБЛИЦА НЕ СУЩЕСТВУЕТ")
 
 
+async def drop_arbitrage():
+    async with engine.begin() as conn:
+        await conn.execute(text("""DROP TABLE IF EXISTS arbitrage CASCADE;"""))
+        await conn.commit()
+
 
 
 async def insert_item_data(data):
@@ -59,21 +66,30 @@ async def insert_item_data(data):
             await session.rollback()  # обязательно откатываем транзакцию
             print("Произошла ошибка целостности данных (например, дубликат ключа)")
 
-async def insert_offer_data(data_in_dict, item_id_db, message_id_db):
+async def insert_offer_data_and_return_id(offer_data_dict):
     async with session_factory() as session:
         new_offer = Offers(
-            item_name=data_in_dict['item_name'],
-            item_id=item_id_db,
-            quantity=data_in_dict['quantity'],
-            offer_type=OfferType(data_in_dict['offer_type']),
-            currency=CurrencyType(data_in_dict['currency']),
-            price_for_one=data_in_dict['price_for_one'],
-            message_id=message_id_db,
+            item_name_message=offer_data_dict['item_name_message'],
+            item_name_db= offer_data_dict['item_name_db'],
+            item_id=offer_data_dict['item_id'],
+            quantity=offer_data_dict['quantity'],
+            offer_type=offer_data_dict['offer_type'],
+            currency=offer_data_dict['currency'],
+            price_for_one=offer_data_dict['price_for_one'],
+            message_id=offer_data_dict['message_id'],
         )
-        session.add(new_offer)
-        await session.commit()
+        try:
+            session.add(new_offer)
+            await session.flush()
+            offer_id = new_offer.id
+            await session.commit()
+            return offer_id
+        except IntegrityError:
+            await session.rollback()  # обязательно откатываем транзакцию
+            print("Произошла ошибка целостности данных (например, дубликат ключа)")
+            return None
 
-async def insert_message_data(event_obj):
+async def insert_message_data_and_return_id(event_obj):
     async with session_factory() as session:
         new_message = Messages(
             sender_id=event_obj.sender_id,
@@ -93,12 +109,108 @@ async def insert_message_data(event_obj):
             return None
 
 
+async def insert_arbitrage_data(buy_offer, sell_offer):
+    profit_for_one = buy_offer['price_for_one'] - sell_offer['price_for_one']
+
+    if sell_offer['quantity'] and buy_offer['quantity']:
+        quantity = min(sell_offer['quantity'], buy_offer['quantity'])
+        profit_for_all = quantity * profit_for_one
+        price_for_all = quantity * sell_offer['price_for_one']
+    else:
+        quantity = None
+        profit_for_all = None
+        price_for_all = None
+
+    async with session_factory() as session:
+        new_arbitrage = Arbitrage(
+            buy_offer=buy_offer['id'],
+            sell_offer=sell_offer['id'],
+            currency=sell_offer['currency'],
+            profit_for_one=profit_for_one,
+            profit_for_all=profit_for_all,
+            price_for_one=sell_offer['price_for_one'],
+            price_for_all=price_for_all,
+            quantity=quantity
+        )
+        try:
+            session.add(new_arbitrage)
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()  # обязательно откатываем транзакцию
+            print("Произошла ошибка целостности данных (например, дубликат ключа)")
+
+
 
 async def get_items():
     async with session_factory() as session:
         query = select(Items).order_by(Items.id)
         result = await session.execute(query)
         return result.scalars().all()
+
+async def get_filtered_offers(offer_data_dict):
+    query_for_buy = (
+        select(
+            Offers
+        )
+        .filter(and_(
+            Offers.item_id == offer_data_dict['item_id'],
+            Offers.offer_type == OfferType.SELL,
+            Offers.price_for_one < offer_data_dict['price_for_one']
+        ))
+    )
+
+    query_for_sell = (
+        select(
+            Offers
+        )
+        .filter(and_(
+            Offers.item_id == offer_data_dict['item_id'],
+            Offers.offer_type == OfferType.BUY,
+            Offers.price_for_one > offer_data_dict['price_for_one']
+        ))
+    )
+
+    if offer_data_dict['offer_type'] == OfferType.SELL:
+        query = query_for_sell
+    else:
+        query = query_for_buy
+
+    async with session_factory() as session:
+        result = await session.execute(query)
+        return result.scalars().all()
+
+
+
+
+# async def get_filtered_buy_offers(offer_data_dict):
+#     query = (
+#         select(
+#             Offers
+#         )
+#         .filter(and_(
+#             Offers.id == offer_data_dict['item_id'],
+#             Offers.offer_type == OfferType.BUY,
+#             Offers.price_for_one < offer_data_dict['price_for_one']
+#         ))
+#     )
+#
+#     async with session_factory() as session:
+#         offers = await session.execute(query)
+#
+#
+#
+# async def get_filtered_sell_offers(offer_data_dict):
+#     query = (
+#         select(
+#             Offers
+#         )
+#         .filter(and_(
+#             Offers.id == offer_data_dict['item_id'],
+#             Offers.offer_type == OfferType.SELL,
+#             Offers.price_for_one > offer_data_dict['price_for_one']
+#         ))
+#     )
+
 
 
 
