@@ -1,17 +1,17 @@
 import asyncio
-from typing import List, Optional, Tuple
 
 from telegram.items_info_listener import items_listener
 from telegram.group_listener import trade_group_listener
 from parser.message_parser import create_request
 from parser.items_parser import items_info_command_printer
 from telegram.tg_client import client, start_client, run_client_forever
-from database.queries import init_db, get_items, insert_offer_data_and_return_id
 from collections import deque
 from rapidfuzz import process, fuzz
-from database.queries import insert_message_data_and_return_id, drop_arbitrage ,clear_offers, insert_item_data, clear_messages, insert_offer_data_and_return_id, drop_messages_table_raw, clear_offers, drop_offers
 from database.models import ItemType, OfferType, CurrencyType
 from logic.arbitrage import arbitrage_finder
+from database.queries import (get_items, init_db, insert_message_data_and_return_id, drop_arbitrage ,clear_messages,
+                              insert_offer_data_and_return_id, drop_messages_table_raw, clear_offers, drop_offers)
+
 
 
 
@@ -21,12 +21,17 @@ async def message_handler(offer_message_queue):
 
     while True:
         message = await offer_message_queue.get()
-        message_id = await insert_message_data_and_return_id(message)
-        if not message_id:
-            continue
         response = await create_request(message.raw_text)
+        
         if not response:
             continue
+
+        message_id = await insert_message_data_and_return_id(message)
+
+        if not message_id:
+            continue
+
+
         await find_foreign_key_item_offer_match_and_insert_offer(items_in_db, response, message_id)
 
 
@@ -58,11 +63,19 @@ async def find_foreign_key_item_offer_match_and_insert_offer(items_in_db, respon
             for ind in range(len(top5) - 1, -1, -1):
                 if items_in_db[top5[ind][1]].item_grade != response[i]['item_grade']:
                     top5.pop(ind)
+        elif len(top5) >= 2 and top5[0][0] == top5[1][0]:
+            print("СООТВЕТСТВУЮЩИЙ ПРЕДМЕТ НЕ НАЙДЕН")
+            return
 
-        if response[i]['item_duration'] != 'undefined':
+        if not top5:
+            return
+        elif response[i]['item_duration'] != 'undefined':
             for ind in range(len(top5) - 1, -1, -1):
                 if items_in_db[top5[ind][1]].item_duration != response[i]['item_duration']:
                     top5.pop(ind)
+        elif len(top5) >= 2 and top5[0][0] == top5[1][0]:
+            print("СООТВЕТСТВУЮЩИЙ ПРЕДМЕТ НЕ НАЙДЕН")
+            return
 
         if not top5:
             print("СООТВЕТСТВУЮЩИЙ ПРЕДМЕТ НЕ НАЙДЕН")
@@ -76,6 +89,7 @@ async def find_foreign_key_item_offer_match_and_insert_offer(items_in_db, respon
                 "id": None,
                 "item_name_message": response[i]['item_name'],
                 "item_name_db": items_in_db[top5[0][1]].item_name,
+                "item_name": items_in_db[top5[0][1]].item_name,
                 "item_id": items_in_db[top5[0][1]].id,
                 "quantity": response[i]['quantity'],
                 "offer_type": OfferType(response[i]['offer_type']),
@@ -99,6 +113,9 @@ async def find_foreign_key_item_offer_match_and_insert_offer(items_in_db, respon
 
 async def trade_group_message_handler():
     await clear_messages()
+    await drop_messages_table_raw()
+    await drop_arbitrage()
+    await drop_offers()
     await init_db()
     offer_message_queue = asyncio.Queue()
     client_run_task = asyncio.create_task(run_client_forever())
@@ -108,7 +125,8 @@ async def trade_group_message_handler():
 
 
 
-asyncio.run(trade_group_message_handler())
+if __name__ == "__main__":
+    asyncio.run(trade_group_message_handler())
 
 
 
@@ -140,22 +158,5 @@ def clear_file():
     with open("C:\\Users\\alex3\\Desktop\\tg_items_info.txt", "w", encoding="utf-8") as file:
         print("ok")
 
-# async def test():
-#     await clear_offers()
-#     await drop_offers()
-#
 
-
-def test_fuzz():
-    str1 = 'Талант - Оракул'
-    str2 = 'Талант - Оракул'
-    str3 = '14 дней'
-    str4 = '7 дней'
-    str5 = '15 дней'
-    str6 = '24 часа'
-    str7 = '24ч'
-    print(fuzz.partial_ratio(str1.lower(), str2.lower()))
-    print(fuzz.ratio(str1.lower(), str2.lower()))
-    print(fuzz.ratio(str6, str7))
-    print(fuzz.ratio(str6, str1))
 

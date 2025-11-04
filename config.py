@@ -8,7 +8,9 @@ class Settings(BaseSettings):
     telegram_api_id: int
     telegram_api_hash: str
     telegram_session_name: str
+    telegram_bot_token: str
     trade_group_id: int
+    my_id: str
     items_info_group_id: str
     equipment_last_id: int
     resource_last_id: int

@@ -14,6 +14,7 @@ async def arbitrage_finder(offer_data_dict):
         for buy_offer in arbitrage_offers:
             buy_offer_data_dict = {
                 "id": buy_offer.id,
+                "item_name": buy_offer.item_name_db,
                 "currency": buy_offer.currency,
                 "price_for_one": buy_offer.price_for_one,
                 "quantity": buy_offer.quantity
@@ -23,6 +24,7 @@ async def arbitrage_finder(offer_data_dict):
         for sell_offer in arbitrage_offers:
             sell_offer_data_dict = {
                 "id": sell_offer.id,
+                "item_name": sell_offer.item_name_db,
                 "currency": sell_offer.currency,
                 "price_for_one": sell_offer.price_for_one,
                 "quantity": sell_offer.quantity

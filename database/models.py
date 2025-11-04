@@ -42,7 +42,10 @@ class Items(Base):
 class Messages(Base):
     __tablename__ = "messages"
 
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    message_group_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sender_username: Mapped[str] = mapped_column(String, nullable=True)
     sender_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     message_text: Mapped[str] = mapped_column(String, nullable=False)
     message_text_hashed: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
@@ -93,6 +96,7 @@ class Arbitrage(Base):
     __tablename__ = "arbitrage"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    item_name: Mapped[str] = mapped_column(String, nullable=False)
     buy_offer: Mapped[int] = mapped_column(ForeignKey(Offers.id, ondelete="CASCADE"))
     sell_offer: Mapped[int] = mapped_column(ForeignKey(Offers.id, ondelete="CASCADE"))
     currency: Mapped[CurrencyType] = mapped_column(Enum(CurrencyType), nullable=False)
