@@ -10,7 +10,8 @@ from rapidfuzz import process, fuzz
 from database.models import ItemType, OfferType, CurrencyType
 from logic.arbitrage import arbitrage_finder
 from database.queries import (get_items, init_db, insert_message_data_and_return_id, drop_arbitrage ,clear_messages,
-                              insert_offer_data_and_return_id, drop_messages_table_raw, clear_offers, drop_offers)
+                              insert_offer_data_and_return_id, drop_messages_table_raw, clear_offers, drop_offers, get_arbitrage_message_item_data_for_bot)
+from telegram.bot.arbitrage_notification_bot import main
 
 
 
@@ -124,9 +125,16 @@ async def trade_group_message_handler():
 
 
 
+async def bot_test():
+    asyncio.create_task(main())
+    await get_arbitrage_message_item_data_for_bot(5)
+    await get_arbitrage_message_item_data_for_bot(3)
+    await asyncio.Event().wait()
+
 
 if __name__ == "__main__":
-    asyncio.run(trade_group_message_handler())
+    # asyncio.run(trade_group_message_handler())
+    asyncio.run(bot_test())
 
 
 
