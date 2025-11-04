@@ -1,9 +1,7 @@
-import asyncio
 from config import settings
 from telethon import events
 from telegram.tg_client import client
 from parser.items_parser import items_info_parser
-import re
 
 
 async def items_listener(items_type_and_id_queue, async_flag):

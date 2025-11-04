@@ -12,11 +12,7 @@ async def items_info_command_printer(items_type_and_id_queue, async_flag):
 
 
     for i in range(len(commands)):
-        for j in range(776, commands[i][1] + 1):
-            if i == 1 and j == 729:
-                continue
-            if i == 1 and j == 523:
-                continue
+        for j in range(0, commands[i][1] + 1):
             items_type_and_id_queue.append({"type":commands[i][2], "in_game_id":j, "datetime":datetime.now(timezone.utc)})
             await client.send_message(settings.items_info_group_id, f"{commands[i][0]} {j}" )
             await asyncio.sleep(1)
