@@ -126,9 +126,10 @@ async def trade_group_message_handler():
 
 
 async def bot_test():
+    asyncio.create_task(run_client_forever())
     asyncio.create_task(main())
     await get_arbitrage_message_item_data_for_bot(5)
-    await get_arbitrage_message_item_data_for_bot(3)
+    # await get_arbitrage_message_item_data_for_bot(3)
     await asyncio.Event().wait()
 
 
