@@ -1,7 +1,6 @@
 import asyncio
 import textwrap
-import re
-from telegram.tg_client import client
+from database.queries import delete_offer_by_id, update_quantity_in_offer_by_id
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command
@@ -127,33 +126,34 @@ async def confirm_delete(callback: types.CallbackQuery):
     offer_type = parts[1]
 
     if offer_type == "both":
-        buy_id, sell_id = parts[2], parts[3]
-        # 🟩 TODO: удалить оба из базы
-        # delete_offer_from_db("buy", buy_id)
-        # delete_offer_from_db("sell", sell_id)
+        buy_id, sell_id = int(parts[2]), int(parts[3])
 
         try:
+            await delete_offer_by_id(buy_id)
+            await delete_offer_by_id(sell_id)
+
             await bot.edit_message_text(
                 chat_id=callback.message.chat.id,
                 message_id=int(parts[4]),
                 text="🚨🚨  ARBITRAGE DELETED!  🚨🚨\n\n💥  BOTH OFFERS DELETED",
             )
         except Exception as e:
-            print("Update message failed:", e)
+            print("Delete offers or update message failed:", e)
 
 
     else:
-        offer_type, offer_id = parts[1], parts[2]
-        # 🟩 TODO: удалить из базы
-        # delete_offer_from_db(offer_type, offer_id)
+        offer_type, offer_id = parts[1], int(parts[2])
+
         try:
+            await delete_offer_by_id(offer_id)
+
             await bot.edit_message_text(
                 chat_id=callback.message.chat.id,
                 message_id=int(parts[3]),
                 text=f"🚨🚨  ARBITRAGE DELETED!  🚨🚨\n\n💥  {offer_type.upper()} OFFER DELETED",
             )
         except Exception as e:
-            print("Update message failed:", e)
+            print("Delete offer or update message failed:", e)
 
 
     # 🟩 также заменяем оригинальное сообщение
@@ -230,9 +230,9 @@ async def receive_new_value(message: types.Message, state: FSMContext):
 @dp.callback_query(F.data == "confirm_edit")
 async def confirm_edit(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    offer_id = data["offer_id"]
+    offer_id = int(data["offer_id"])
     offer_type = data["offer_type"]
-    new_value = data["new_value"]
+    new_value = int(data["new_value"])
     msg_id = data["message_id"]
     text = data["message_text"]
     message_reply_markup = data["message_reply_markup"]
@@ -241,7 +241,10 @@ async def confirm_edit(callback: types.CallbackQuery, state: FSMContext):
 
     # 🟩 TODO: обновить количество в базе
     # update_offer_quantity(offer_type, offer_id, new_value)
-
+    try:
+        await update_quantity_in_offer_by_id(offer_id, new_value)
+    except Exception as e:
+        print("Update offer failed:", e)
     # 🟩 обновляем исходное сообщение с новым количеством
 
     if offer_type.upper() not in ['SELL', 'BUY']:
@@ -309,10 +312,10 @@ async def cancel_command(message: types.Message, state: FSMContext):
 # ===========================================
 #  Запуск long polling
 # ===========================================
-async def main():
+async def bot_execution():
     print("Bot is running...")
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(bot_execution())

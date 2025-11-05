@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     items_info_group_id: str
     equipment_last_id: int
     resource_last_id: int
+    file_path: str
 
     model_config = SettingsConfigDict(env_file=".env")
 

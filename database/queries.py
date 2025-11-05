@@ -3,8 +3,7 @@ from sqlalchemy.orm import selectinload
 from database.db_main import engine, Base, session_factory
 from database.models import Items, ItemType, Offers, OfferType, Messages, CurrencyType, Arbitrage
 from sqlalchemy.exc import IntegrityError, ProgrammingError
-from sqlalchemy import select, delete, text, and_
-from telegram.bot.arbitrage_notification_bot import send_telegram_message
+from sqlalchemy import select, delete, update, text, and_
 from datetime import timezone
 import hashlib
 
@@ -190,7 +189,8 @@ async def insert_arbitrage_data(buy_offer, sell_offer):
             await session.flush()
             new_arbitrage_id = new_arbitrage.id
             await session.commit()
-            await get_arbitrage_message_item_data_for_bot(new_arbitrage_id)
+            # await get_arbitrage_message_item_data_for_bot(new_arbitrage_id)
+            return new_arbitrage_id
 
         except IntegrityError:
             await session.rollback()  # обязательно откатываем транзакцию
@@ -220,14 +220,39 @@ async def get_arbitrage_message_item_data_for_bot(arbitrage_id):
     async with session_factory() as session:
         result = await session.execute(query)
         result = result.scalars().all()
-    await send_telegram_message(result[0])
+    return result[0]
 
 
 
 
+async def delete_offer_by_id(offer_id):
+    async with session_factory() as session:
+        query = (
+            delete(
+                Offers
+            )
+            .where(
+                Offers.id == offer_id
+            )
+        )
+        await session.execute(query)
+        await session.commit()
 
-
-
+async def update_quantity_in_offer_by_id(offer_id, new_quantity):
+    async with session_factory() as session:
+        query = (
+            update(
+                Offers
+            )
+            .where(
+                Offers.id == offer_id
+            )
+            .values(
+                quantity= new_quantity
+            )
+        )
+        await session.execute(query)
+        await session.commit()
 
 
 def hash_message(text):

@@ -1,17 +1,14 @@
 import asyncio
-
-from telegram.items_info_listener import items_listener
 from telegram.group_listener import trade_group_listener
 from parser.message_parser import create_request
-from parser.items_parser import items_info_command_printer
-from telegram.tg_client import client, start_client, run_client_forever
-from collections import deque
-from rapidfuzz import process, fuzz
-from database.models import ItemType, OfferType, CurrencyType
+from telegram.tg_client import run_client_forever
+from rapidfuzz import fuzz
+from database.models import OfferType, CurrencyType
 from logic.arbitrage import arbitrage_finder
+from telegram.bot.arbitrage_notification_bot import bot_execution
 from database.queries import (get_items, init_db, insert_message_data_and_return_id, drop_arbitrage ,clear_messages,
-                              insert_offer_data_and_return_id, drop_messages_table_raw, clear_offers, drop_offers, get_arbitrage_message_item_data_for_bot)
-from telegram.bot.arbitrage_notification_bot import main
+                              insert_offer_data_and_return_id, drop_messages_table_raw, drop_offers)
+
 
 
 
@@ -109,9 +106,6 @@ async def find_foreign_key_item_offer_match_and_insert_offer(items_in_db, respon
             await arbitrage_finder(offer_data_dict)
 
 
-
-
-
 async def trade_group_message_handler():
     await clear_messages()
     await drop_messages_table_raw()
@@ -121,21 +115,13 @@ async def trade_group_message_handler():
     offer_message_queue = asyncio.Queue()
     client_run_task = asyncio.create_task(run_client_forever())
     listener_task = asyncio.create_task(trade_group_listener(offer_message_queue))
+    notification_bot_task = asyncio.create_task(bot_execution())
     await message_handler(offer_message_queue)
 
 
 
-async def bot_test():
-    asyncio.create_task(run_client_forever())
-    asyncio.create_task(main())
-    await get_arbitrage_message_item_data_for_bot(5)
-    # await get_arbitrage_message_item_data_for_bot(3)
-    await asyncio.Event().wait()
-
-
 if __name__ == "__main__":
-    # asyncio.run(trade_group_message_handler())
-    asyncio.run(bot_test())
+    asyncio.run(trade_group_message_handler())
 
 
 
@@ -152,20 +138,8 @@ if __name__ == "__main__":
 
 
 
-async def items_in_file_renew():
-    clear_file()
-    items_type_and_id_queue = deque(maxlen=1)
-    async_flag = asyncio.Event()
-    # await init_db()
-    await start_client()
-    await items_listener(items_type_and_id_queue, async_flag)
-    asyncio.create_task(items_info_command_printer(items_type_and_id_queue, async_flag))
-    await run_client_forever()
 
 
-def clear_file():
-    with open("C:\\Users\\alex3\\Desktop\\tg_items_info.txt", "w", encoding="utf-8") as file:
-        print("ok")
 
 
 

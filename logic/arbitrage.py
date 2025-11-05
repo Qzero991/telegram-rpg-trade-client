@@ -1,6 +1,7 @@
-from database.queries import get_filtered_offers
+from database.queries import get_filtered_offers, insert_arbitrage_data, get_arbitrage_message_item_data_for_bot
 from database.models import OfferType, CurrencyType
-from database.queries import insert_arbitrage_data
+from telegram.bot.arbitrage_notification_bot import send_telegram_message
+
 
 
 async def arbitrage_finder(offer_data_dict):
@@ -11,24 +12,20 @@ async def arbitrage_finder(offer_data_dict):
         return
 
     if offer_data_dict['offer_type'] == OfferType.SELL:
-        for buy_offer in arbitrage_offers:
-            buy_offer_data_dict = {
-                "id": buy_offer.id,
-                "item_name": buy_offer.item_name_db,
-                "currency": buy_offer.currency,
-                "price_for_one": buy_offer.price_for_one,
-                "quantity": buy_offer.quantity
-            }
-            await insert_arbitrage_data(buy_offer=buy_offer_data_dict, sell_offer=offer_data_dict)
-    elif offer_data_dict['offer_type'] == OfferType.BUY:
-        for sell_offer in arbitrage_offers:
-            sell_offer_data_dict = {
-                "id": sell_offer.id,
-                "item_name": sell_offer.item_name_db,
-                "currency": sell_offer.currency,
-                "price_for_one": sell_offer.price_for_one,
-                "quantity": sell_offer.quantity
-            }
-            await insert_arbitrage_data(buy_offer=offer_data_dict, sell_offer=sell_offer_data_dict)
+        async def insert(second_offer):
+            return await insert_arbitrage_data(buy_offer=second_offer, sell_offer=offer_data_dict)
+    else:
+        async def insert(second_offer):
+            return await insert_arbitrage_data(buy_offer=offer_data_dict, sell_offer=second_offer)
 
-
+    for offer in arbitrage_offers:
+        second_offer_data_dict = {
+            "id": offer.id,
+            "item_name": offer.item_name_db,
+            "currency": offer.currency,
+            "price_for_one": offer.price_for_one,
+            "quantity": offer.quantity
+        }
+        arbitrage_id = await insert(second_offer_data_dict)
+        result_data = await get_arbitrage_message_item_data_for_bot(arbitrage_id)
+        await send_telegram_message(result_data)
