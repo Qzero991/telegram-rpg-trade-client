@@ -1,5 +1,6 @@
 import asyncio
 import textwrap
+import logging
 from database.queries import delete_offer_by_id, update_quantity_in_offer_by_id
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,25 +9,29 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from config import settings
 
+# =============================
+#  Logging setup
+# =============================
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 bot = Bot(token=settings.telegram_bot_token)
 dp = Dispatcher()
 
-# ===========================================
-#  FSM: состояния для редактирования оффера
-# ===========================================
+
+# =============================
+#  FSM States for offer editing
+# =============================
 class EditOffer(StatesGroup):
     waiting_for_new_value = State()
     waiting_for_confirmation = State()
 
 
-
-
-
-# ===========================================
-#  Уведомление об арбитраже
-# ===========================================
+# =============================
+#  Arbitrage notification
+# =============================
 async def send_telegram_message(query_result):
+    """Sends formatted arbitrage message with action buttons."""
     item = query_result.buy_offer_rel.item
     sell_offer = query_result.sell_offer_rel
     buy_offer = query_result.buy_offer_rel
@@ -68,7 +73,6 @@ async def send_telegram_message(query_result):
     📦 Quantity: {buy_offer.quantity}
     """)
 
-    # 🟩 NEW — добавлена кнопка Delete BOTH
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🗑️ Delete BUY", callback_data=f"delete_buy:{buy_offer.id}"),
@@ -79,99 +83,80 @@ async def send_telegram_message(query_result):
             InlineKeyboardButton(text="✏️ Edit SELL", callback_data=f"edit_sell:{sell_offer.id}:{sell_offer.quantity}")
         ],
         [
-            InlineKeyboardButton(text="💣 Delete BOTH", callback_data=f"delete_both:{buy_offer.id}:{sell_offer.id}")  # 🟩 NEW
+            InlineKeyboardButton(text="💣 Delete BOTH", callback_data=f"delete_both:{buy_offer.id}:{sell_offer.id}")
         ]
     ])
 
     sent_message = await bot.send_message(settings.my_id, text, reply_markup=keyboard)
-    return sent_message.message_id  # 🟩 пригодится для обновлений
+    logger.info(f"Arbitrage message sent (buy_id={buy_offer.id}, sell_id={sell_offer.id})")
+    return sent_message.message_id
 
 
-# ===========================================
-#  Обработка удаления
-# ===========================================
+# =============================
+#  Offer deletion handlers
+# =============================
 @dp.callback_query(F.data.startswith("delete_"))
 async def delete_offer(callback: types.CallbackQuery):
+    """Handles delete button press (buy/sell/both)."""
     parts = callback.data.split(":")
     action = parts[0]
-    offer_type = action.split("_")[1]  # "buy", "sell" или "both"
+    offer_type = action.split("_")[1]
 
-    # 🟩 удаление обоих офферов
     if offer_type == "both":
         buy_id, sell_id = parts[1], parts[2]
         confirm_kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="✅ Confirm", callback_data=f"confirm_delete:both:{buy_id}:{sell_id}:{callback.message.message_id}"),
             InlineKeyboardButton(text="❌ Cancel", callback_data="cancel")
         ]])
-        await callback.message.reply("Are you sure you want to delete BOTH offers?", reply_markup=confirm_kb)
+        await callback.message.reply("Confirm deletion of BOTH offers?", reply_markup=confirm_kb)
         await callback.answer()
         return
 
-    # 🟩 удаление одного оффера
     offer_id = parts[1]
     confirm_kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="✅ Confirm", callback_data=f"confirm_delete:{offer_type}:{offer_id}:{callback.message.message_id}"),
         InlineKeyboardButton(text="❌ Cancel", callback_data="cancel")
     ]])
-    await callback.message.reply(
-        f"Are you sure you want to delete the {offer_type.upper()} offer?",
-        reply_markup=confirm_kb
-    )
+    await callback.message.reply(f"Confirm deletion of {offer_type.upper()} offer?", reply_markup=confirm_kb)
     await callback.answer()
 
 
 @dp.callback_query(F.data.startswith("confirm_delete"))
 async def confirm_delete(callback: types.CallbackQuery):
+    """Deletes offer(s) from DB after confirmation."""
     parts = callback.data.split(":")
     offer_type = parts[1]
 
-    if offer_type == "both":
-        buy_id, sell_id = int(parts[2]), int(parts[3])
-
-        try:
+    try:
+        if offer_type == "both":
+            buy_id, sell_id = int(parts[2]), int(parts[3])
             await delete_offer_by_id(buy_id)
             await delete_offer_by_id(sell_id)
-
-            await bot.edit_message_text(
-                chat_id=callback.message.chat.id,
-                message_id=int(parts[4]),
-                text="🚨🚨  ARBITRAGE DELETED!  🚨🚨\n\n💥  BOTH OFFERS DELETED",
-            )
-        except Exception as e:
-            print("Delete offers or update message failed:", e)
-
-
-    else:
-        offer_type, offer_id = parts[1], int(parts[2])
-
-        try:
+            logger.info(f"Deleted BOTH offers (buy_id={buy_id}, sell_id={sell_id})")
+            await bot.edit_message_text(chat_id=callback.message.chat.id, message_id=int(parts[4]),
+                                        text="🚨🚨  ARBITRAGE DELETED!  🚨🚨\n\n💥 BOTH OFFERS DELETED")
+        else:
+            offer_id = int(parts[2])
             await delete_offer_by_id(offer_id)
+            logger.info(f"Deleted {offer_type.upper()} offer (id={offer_id})")
+            await bot.edit_message_text(chat_id=callback.message.chat.id, message_id=int(parts[3]),
+                                        text=f"🚨🚨  ARBITRAGE DELETED!  🚨🚨\n\n💥 {offer_type.upper()} OFFER DELETED")
 
-            await bot.edit_message_text(
-                chat_id=callback.message.chat.id,
-                message_id=int(parts[3]),
-                text=f"🚨🚨  ARBITRAGE DELETED!  🚨🚨\n\n💥  {offer_type.upper()} OFFER DELETED",
-            )
-        except Exception as e:
-            print("Delete offer or update message failed:", e)
-
-
-    # 🟩 также заменяем оригинальное сообщение
-    try:
         await callback.message.edit_text("✅ Deletion completed")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Delete operation failed: {e}")
 
     await callback.answer("Deleted")
 
 
-# ===========================================
-#  Обработка редактирования
-# ===========================================
+# =============================
+#  Offer editing handlers
+# =============================
 @dp.callback_query(F.data.startswith("edit_"))
 async def edit_offer(callback: types.CallbackQuery, state: FSMContext):
+    """Starts offer quantity editing process."""
     action, offer_id, quantity = callback.data.split(":")
-    offer_type = action.split("_")[1]  # "buy" или "sell"
+    offer_type = action.split("_")[1]
 
     await state.update_data(
         offer_id=offer_id,
@@ -180,124 +165,97 @@ async def edit_offer(callback: types.CallbackQuery, state: FSMContext):
         message_id=callback.message.message_id,
         message_text=callback.message.text,
         message_reply_markup=callback.message.reply_markup
-                                    # 🟩 сохраним ID сообщения для будущего редактирования
     )
-    await callback.message.reply(
-        f"Enter new quantity for {offer_type.upper()} offer.\nCurrent quantity: {quantity}\n\n/cancel to abort"
-    )
+    await callback.message.reply(f"Enter new quantity for {offer_type.upper()} offer.\nCurrent: {quantity}\n\n/cancel to abort")
     await state.set_state(EditOffer.waiting_for_new_value)
     await callback.answer()
+    logger.info(f"Editing {offer_type.upper()} offer (id={offer_id}) initiated")
 
 
 @dp.message(EditOffer.waiting_for_new_value)
 async def receive_new_value(message: types.Message, state: FSMContext):
-    if message.text and message.text.startswith("/cancel"):
+    """Receives new quantity from user."""
+    if message.text.startswith("/cancel"):
         await state.clear()
         await message.answer("❌ Action cancelled.")
         return
 
-    if not message.text.isdigit() or message.text[0] == '-':
-        await message.answer("❌ Please enter a valid number.")
+    if not message.text.isdigit() or message.text.startswith('-'):
+        await message.answer("❌ Please enter a valid positive number.")
         return
 
     new_value = int(message.text)
     data = await state.get_data()
-    offer_id = data["offer_id"]
-    offer_type = data["offer_type"]
-    quantity = data["quantity"]
+    offer_id, offer_type, quantity = data["offer_id"], data["offer_type"], data["quantity"]
 
-    # 🟩 если новое значение = 0 — предупреждение об удалении
     if new_value == 0:
         kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="✅ Confirm delete", callback_data=f"confirm_delete:{offer_type}:{offer_id}:{data["message_id"]}"),
+            InlineKeyboardButton(text="✅ Confirm delete", callback_data=f"confirm_delete:{offer_type}:{offer_id}:{data['message_id']}"),
             InlineKeyboardButton(text="❌ Cancel", callback_data="cancel")
         ]])
-        await message.answer(f"⚠️ This will delete the {offer_type} offer and arbitrage. Confirm?", reply_markup=kb)
-        # 🟩 можно удалить предупреждение позже
-
+        await message.answer(f"⚠️ Quantity = 0 means deletion. Confirm?", reply_markup=kb)
         return
 
     await state.update_data(new_value=new_value)
-
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="✅ Confirm", callback_data="confirm_edit"),
         InlineKeyboardButton(text="❌ Cancel", callback_data="cancel")
     ]])
-    await message.answer(f"Change quantity from {quantity} to {new_value}?", reply_markup=kb)
+    await message.answer(f"Change quantity from {quantity} → {new_value}?", reply_markup=kb)
     await state.set_state(EditOffer.waiting_for_confirmation)
 
 
 @dp.callback_query(F.data == "confirm_edit")
 async def confirm_edit(callback: types.CallbackQuery, state: FSMContext):
+    """Applies quantity update to DB and updates message text."""
     data = await state.get_data()
     offer_id = int(data["offer_id"])
     offer_type = data["offer_type"]
     new_value = int(data["new_value"])
     msg_id = data["message_id"]
     text = data["message_text"]
-    message_reply_markup = data["message_reply_markup"]
+    markup = data["message_reply_markup"]
 
     await state.clear()
 
-    # 🟩 TODO: обновить количество в базе
-    # update_offer_quantity(offer_type, offer_id, new_value)
     try:
         await update_quantity_in_offer_by_id(offer_id, new_value)
+        logger.info(f"Updated {offer_type.upper()} offer (id={offer_id}) to quantity={new_value}")
     except Exception as e:
-        print("Update offer failed:", e)
-    # 🟩 обновляем исходное сообщение с новым количеством
+        logger.error(f"Failed to update offer quantity: {e}")
 
-    if offer_type.upper() not in ['SELL', 'BUY']:
-        raise ValueError("Неверный offer_type: должен быть 'SELL' или 'BUY'")
-
-    lines = text.splitlines()  # Разбиваем текст на строки
-    in_section = False  # Флаг, что мы в нужном блоке
+    # Update message text
+    lines = text.splitlines()
     section_start = "📤 SELL OFFER" if offer_type.upper() == 'SELL' else "📥 BUY OFFER"
+    in_section = False
 
     for i, line in enumerate(lines):
-        stripped = line.strip()
-
-        # Входим в нужный блок
-        if stripped.startswith(section_start):
+        if line.strip().startswith(section_start):
             in_section = True
             continue
-
-        # Если мы в блоке и нашли строку с Quantity
-        if in_section and stripped.startswith("📦 Quantity:"):
-            # Находим позицию числа: после "📦 Quantity: " (с учётом пробелов)
+        if in_section and line.strip().startswith("📦 Quantity:"):
             prefix = "📦 Quantity: "
-            number_start = line.find(prefix) + len(prefix)
-            # Заменяем всю строку на новую с new_value
-            lines[i] = line[:number_start] + str(new_value)
-            break  # Замена сделана, выходим
+            pos = line.find(prefix) + len(prefix)
+            lines[i] = line[:pos] + str(new_value)
+            break
 
-    # Собираем текст обратно
-    replaced_text = '\n'.join(lines)
-
-    # Если замена не произошла (блок не найден), возвращаем оригинал с предупреждением
-    if replaced_text == text:
-        print("Предупреждение: Раздел для замены не найден.")
+    updated_text = "\n".join(lines)
 
     try:
-        await bot.edit_message_text(
-            chat_id=callback.message.chat.id,
-            message_id=msg_id,
-            text=replaced_text,
-            reply_markup=message_reply_markup
-        )
+        await bot.edit_message_text(chat_id=callback.message.chat.id, message_id=msg_id, text=updated_text, reply_markup=markup)
     except Exception as e:
-        print("Update message failed:", e)
+        logger.warning(f"Could not update message text: {e}")
 
-    await callback.message.reply(f"✅ {offer_type.upper()} offer updated successfully.")
-    await state.clear()
+    await callback.message.reply(f"✅ {offer_type.upper()} offer updated.")
     await callback.answer("Updated")
 
 
-# ===========================================
-#  Cancel
-# ===========================================
+# =============================
+#  Cancel handlers
+# =============================
 @dp.callback_query(F.data == "cancel")
 async def cancel_action(callback: types.CallbackQuery, state: FSMContext):
+    """Cancels any ongoing FSM action."""
     await state.clear()
     await callback.message.edit_text("❌ Action cancelled.")
     await callback.answer("Cancelled")
@@ -305,15 +263,16 @@ async def cancel_action(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(Command("cancel"))
 async def cancel_command(message: types.Message, state: FSMContext):
+    """Cancels from /cancel command."""
     await state.clear()
     await message.answer("❌ Action cancelled.")
 
 
-# ===========================================
-#  Запуск long polling
-# ===========================================
+# =============================
+#  Bot execution
+# =============================
 async def bot_execution():
-    print("Bot is running...")
+    logger.info("Bot is running...")
     await dp.start_polling(bot)
 
 

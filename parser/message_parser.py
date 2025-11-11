@@ -1,16 +1,25 @@
-from openai import AsyncOpenAI
-from config import settings
-from rapidfuzz import process, fuzz
+import logging
 import json
 import re
+from rapidfuzz import process, fuzz
+from openai import AsyncOpenAI
+from config import settings
 
-client = AsyncOpenAI(api_key=settings.deepseek_api_key, base_url=settings.deepseek_base_url)
+# ---------------- Logging ----------------
+logger = logging.getLogger(__name__)
+
+# ---------------- OpenAI (DeepSeek) client ----------------
+client = AsyncOpenAI(
+    api_key=settings.deepseek_api_key,
+    base_url=settings.deepseek_base_url
+)
 
 
 def contains_buy_sell(text: str, threshold: int = 85) -> bool:
-    # Ключевые слова, которые ищем
+    """
+    Checks if message contains 'buy' or 'sell' keywords with fuzzy matching.
+    """
     keywords = ["продам", "продажа", "продаю", "куплю", "скупка", "покупаю", "покупка"]
-    # Разбиваем текст на слова (регулярка убирает знаки препинания)
     words = re.findall(r"\w+", text.lower())
 
     for kw in keywords:
@@ -19,34 +28,35 @@ def contains_buy_sell(text: str, threshold: int = 85) -> bool:
             return True
     return False
 
+
 async def create_request(message: str):
+    """
+    Sends message to DeepSeek model and parses response into structured JSON.
+    """
 
     if not contains_buy_sell(message):
-        print("There are no 'Buy' or 'Sell' keywords in message")
+        logger.debug("No buy/sell keywords found in message — skipping.")
         return None
+
+    logger.info("Sending message to DeepSeek model for parsing...")
 
     response = await client.chat.completions.create(
         model="deepseek-chat",
         temperature=0.5,
-        response_format={
-            "type": "json_object"
-        },
+        response_format={"type": "json_object"},
         messages=[
-            {
-                "role": "system",
-                "content": prompt5_english
-            },
-            {
-                "role": "user",
-                "content": message
-            }
+            {"role": "system", "content": prompt5_english},
+            {"role": "user", "content": message}
         ]
     )
 
-    print(response.choices[0].message.content)
+    content = response.choices[0].message.content
+    logger.info(f"Model raw response: {content}...")
 
     try:
-        data = json.loads(response.choices[0].message.content)
+        data = json.loads(content)
+
+        # Normalize model response
         if isinstance(data, dict) and "items" in data:
             items = data["items"]
         elif isinstance(data, dict) and "offers" in data:
@@ -56,16 +66,29 @@ async def create_request(message: str):
         elif isinstance(data, list):
             items = data
         else:
-            print("ОШИБКА. НЕПРАВИЛЬНЫЙ ТИП ОТВЕТА ОТ НЕЙРОНКИ")
+            logger.error("Invalid JSON structure from model.")
             return None
-        items = [obj for obj in items if isinstance(obj['price_for_one'], int) and obj['currency'] in ("cookies", "money")]
+
+        # Filter valid items
+        items = [
+            obj for obj in items
+            if isinstance(obj.get("price_for_one"), int)
+            and obj.get("currency") in ("cookies", "money")
+        ]
+
         if items:
+            logger.info(f"Parsed {len(items)} valid offers from message.")
             return items
-    except (json.JSONDecodeError, TypeError):
-        print("ОШИБКА. НЕПРАВИЛЬНЫЙ ТИП ОТВЕТА ОТ НЕЙРОНКИ")
+        else:
+            logger.warning("No valid items found in model response.")
+            return None
+
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.error(f"Failed to parse model response: {e}")
         return None
 
 
+# ---------------- System Prompt ----------------
 prompt5_english = """
 You are a parser for trade messages from a Russian-language RPG game chat.  
 Each incoming message may contain information about buying, selling, or both at the same time.  
@@ -93,8 +116,7 @@ The entire output must be a fully valid JSON structure that can be parsed withou
 * **price_for_one** — the price per item (integer).  
   If the price is missing, unclear, or cannot be confidently determined — **do not create an object** for this item.
 * **offer_type** — `"buy"` or `"sell"`.  
-  If it’s impossible to confidently determine whether it’s a buy or sell offer (i.e., there are no words like "куплю" or "продам" or similar) — **ignore this offer** and **do not include it in JSON**.  
-  **This is extremely important.**
+  If it’s impossible to confidently determine whether it’s a buy or sell offer — **ignore this offer**.
 * **currency** — `"cookies"` (печеньки) or `"money"` (монеты).
 
 If the message contains both buy and sell offers — return an array of objects, one for each operation.
@@ -106,47 +128,7 @@ If the message contains both buy and sell offers — return an array of objects,
 * Work directly with the Russian text — **do not translate it**.  
 * If no reliable data is found, return only `None`.  
 * If the user is trading **currency** (e.g., cookies for money), treat it as a normal offer where `item_name = "cookies"`.
-
-**Example:**
-
-Message:
-
-Продам:
-Меч рыцаря [II] - 500💰
-Лук короля III+ - 30печ.
-Продам 10 печ по 400з
-
-JSON:
-
-[
-  {
-    "item_name": "Меч рыцаря",
-    "quantity": null,
-    "item_grade": "[II]",
-    "item_duration": "undefined",
-    "price_for_one": 500,
-    "offer_type": "sell",
-    "currency": "money"
-  },
-  {
-    "item_name": "Лук короля",
-    "quantity": null,
-    "item_grade": "[III+]",
-    "item_duration": "undefined",
-    "price_for_one": 30,
-    "offer_type": "sell",
-    "currency": "cookies"
-  },
-  {
-    "item_name": "cookies",
-    "quantity": 10,
-    "item_grade": "undefined",
-    "item_duration": "undefined",
-    "price_for_one": 400,
-    "offer_type": "sell",
-    "currency": "money"
-  }
-]
 """
+
 
 
