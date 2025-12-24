@@ -6,10 +6,8 @@ from telegram.bot.arbitrage_notification_bot import send_telegram_message
 logger = logging.getLogger(__name__)
 
 
+# Finds arbitrage opportunities between offers and saves profitable pairs to the database.
 async def arbitrage_finder(offer_data_dict):
-    """
-    Finds arbitrage opportunities between offers and saves profitable pairs to the database.
-    """
 
     logger.info(f"Starting arbitrage search for item: {offer_data_dict.get('item_name')}")
 

@@ -3,13 +3,14 @@ import asyncio
 from config import settings
 from collections import deque
 from telegram.items_info_listener import items_listener
-from parser.items_parser import items_info_command_printer
+from parser.items_info_message_parser import items_info_command_printer
 from telegram.tg_client import start_client, run_client_forever
 
 logger = logging.getLogger(__name__)
 
+# Renews table 'Items' in db, by printing commands and analyzing answers from game_info_bot
 async def items_in_file_renew():
-    """Renews table 'Items' in db, by printing commands and analyzing answers from game_info_bot"""
+
 
     logger.info("Items data renewal in database started")
 

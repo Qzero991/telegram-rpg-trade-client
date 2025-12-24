@@ -5,20 +5,18 @@ from rapidfuzz import process, fuzz
 from openai import AsyncOpenAI
 from config import settings
 
-# ---------------- Logging ----------------
+# Logging
 logger = logging.getLogger(__name__)
 
-# ---------------- OpenAI (DeepSeek) client ----------------
+# OpenAI (DeepSeek) client
 client = AsyncOpenAI(
     api_key=settings.deepseek_api_key,
     base_url=settings.deepseek_base_url
 )
 
 
+# Checks if message contains 'buy' or 'sell' keywords with fuzzy matching.
 def contains_buy_sell(text: str, threshold: int = 85) -> bool:
-    """
-    Checks if message contains 'buy' or 'sell' keywords with fuzzy matching.
-    """
     keywords = ["продам", "продажа", "продаю", "куплю", "скупка", "покупаю", "покупка"]
     words = re.findall(r"\w+", text.lower())
 
@@ -29,10 +27,8 @@ def contains_buy_sell(text: str, threshold: int = 85) -> bool:
     return False
 
 
+# Sends message to DeepSeek model and parses response into structured JSON.
 async def create_request(message: str):
-    """
-    Sends message to DeepSeek model and parses response into structured JSON.
-    """
 
     if not contains_buy_sell(message):
         logger.debug("No buy/sell keywords found in message — skipping.")
@@ -42,7 +38,7 @@ async def create_request(message: str):
 
     response = await client.chat.completions.create(
         model="deepseek-chat",
-        temperature=0.5,
+        temperature=1.0,
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": prompt5_english},
@@ -88,7 +84,7 @@ async def create_request(message: str):
         return None
 
 
-# ---------------- System Prompt ----------------
+# System Prompt
 prompt5_english = """
 You are a parser for trade messages from a Russian-language RPG game chat.  
 Each incoming message may contain information about buying, selling, or both at the same time.  
@@ -102,7 +98,7 @@ The entire output must be a fully valid JSON structure that can be parsed withou
 **Data generation rules:**
 
 * **item_name** — the name of the item (without grade, duration, or unnecessary details).  
-* **quantity** —  
+* **quantity** —  the quantity of item
   * if the quantity is explicitly mentioned — use that number,  
   * if not mentioned — use `null`.
 * **item_grade** — the item’s grade. It’s usually a Roman numeral, often in brackets, like `[II]`, `[III]`, `[III+]`, or written without brackets like `II`, `III+`.  

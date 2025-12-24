@@ -6,10 +6,10 @@ from config import settings
 from telegram.tg_client import client
 from database.queries import insert_item_data
 
-# ---------------- Logging ----------------
+# Logging
 logger = logging.getLogger(__name__)
 
-# ---------------- Patterns ----------------
+# Patterns
 equip_name_pattern = re.compile(r"Страница экипировки.*?\n[^\n]*?\n.*?([A-Za-zА-Яа-яЁё '’.]+[^\n\[\]\(\)]*)")
 resource_name_pattern = re.compile(r"Страница ресурса.*?\n[^\n]*?\n.*?([A-Za-zА-Яа-яЁё0-9 \"'’.%+-]+)")
 resource_receipt_name_pattern = re.compile(r"(Рецепт)\s*\[.*?]([^\(\)\n]*)")
@@ -23,11 +23,8 @@ commands = [
     ("/getasset", settings.resource_last_id, "resource")
 ]
 
-
+# Sends item info commands to telegram game_info_bot in sequence, handling rate limits and retries.
 async def items_info_command_printer(items_type_and_id_queue, async_flag):
-    """
-    Sends item info commands to telegram game_info_bot in sequence, handling rate limits and retries.
-    """
 
     logger.info("Starting item info command printer...")
 
@@ -78,11 +75,8 @@ async def items_info_command_printer(items_type_and_id_queue, async_flag):
 
     logger.info("Item info command printer finished.")
 
-
+# Parses incoming Telegram messages and extracts item info to store in DB.
 async def items_info_parser(event, items_type_and_id_queue, async_flag):
-    """
-    Parses incoming Telegram messages and extracts item info to store in DB.
-    """
 
     logger.debug(f"Received message: {event.raw_text[:100]}...")
 
@@ -101,7 +95,7 @@ async def items_info_parser(event, items_type_and_id_queue, async_flag):
 
     data = items_type_and_id_queue.pop()
 
-    # messages that mean item not found or untransferable
+    # messages that mean item not found or not transferable
     if (
         event.raw_text == "❗️ Экипировка не найдена"
         or event.raw_text == "❗️ Ресурс не найден"

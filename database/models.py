@@ -4,10 +4,7 @@ from sqlalchemy import Integer, String, UniqueConstraint, Enum, ForeignKey, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.db_main import Base
 
-
-# -----------------------------
 # Enum definitions
-# -----------------------------
 class ItemType(enum.Enum):
     EQUIPMENT = "equipment"
     RESOURCE = "resource"
@@ -23,10 +20,7 @@ class CurrencyType(enum.Enum):
     COOKIES = "cookies"
     MONEY = "money"
 
-
-# -----------------------------
 # Items table
-# -----------------------------
 class Items(Base):
     __tablename__ = "items"
 
@@ -48,10 +42,7 @@ class Items(Base):
         cascade="all, delete-orphan"
     )
 
-
-# -----------------------------
 # Messages table
-# -----------------------------
 class Messages(Base):
     __tablename__ = "messages"
 
@@ -73,10 +64,7 @@ class Messages(Base):
         cascade="all, delete-orphan"
     )
 
-
-# -----------------------------
 # Offers table
-# -----------------------------
 class Offers(Base):
     __tablename__ = "offers"
 
@@ -109,10 +97,7 @@ class Offers(Base):
         cascade="all, delete-orphan"
     )
 
-
-# -----------------------------
 # Arbitrage table
-# -----------------------------
 class Arbitrage(Base):
     __tablename__ = "arbitrage"
 

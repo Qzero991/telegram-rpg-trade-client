@@ -11,22 +11,25 @@ from database.models import Items, ItemType, Offers, OfferType, Messages, Arbitr
 logger = logging.getLogger(__name__)
 
 
-# ---------------- Database initialization ----------------
+# Database initialization
 async def init_db():
-    """Create all tables in the database."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database initialized.")
 
 
+# Drop all tables
 async def clear_db():
-    """Drop all tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         logger.info("Database cleared (all tables dropped).")
 
+async def clear_db_without_items():
+    await drop_messages_table_raw()
+    await drop_offers()
+    await drop_arbitrage()
 
-# ---------------- Message operations ----------------
+# Message operations
 async def clear_messages():
     async with session_factory() as session:
         await session.execute(delete(Messages))
@@ -45,7 +48,7 @@ async def drop_messages_table_raw():
             logger.warning("Messages table does not exist.")
 
 
-# ---------------- Offer operations ----------------
+# Offer operations
 async def clear_offers():
     async with session_factory() as session:
         await session.execute(delete(Offers))
@@ -67,7 +70,7 @@ async def drop_arbitrage():
         logger.info("Arbitrage table dropped.")
 
 
-# ---------------- Insert data ----------------
+# Insert data
 async def insert_item_data(data):
     async with session_factory() as session:
         new_item = Items(
@@ -136,7 +139,7 @@ async def insert_message_data_and_return_id(event_obj):
             return None
 
 
-# ---------------- Select operations ----------------
+# Select operations
 async def get_items():
     async with session_factory() as session:
         query = select(Items).order_by(Items.id)
@@ -144,9 +147,8 @@ async def get_items():
         logger.debug("Fetched all items from DB.")
         return result.scalars().all()
 
-
+# Select opposite-type offers to detect arbitrage opportunities.
 async def get_filtered_offers(offer_data_dict):
-    """Select opposite-type offers to detect arbitrage opportunities."""
     query_for_buy = (
         select(Offers)
         .filter(and_(
@@ -174,9 +176,8 @@ async def get_filtered_offers(offer_data_dict):
         logger.debug("Fetched filtered offers for arbitrage check.")
         return result.scalars().all()
 
-
+# Insert new arbitrage record based on two offers.
 async def insert_arbitrage_data(buy_offer, sell_offer):
-    """Insert new arbitrage record based on two offers."""
     profit_for_one = buy_offer['price_for_one'] - sell_offer['price_for_one']
 
     if sell_offer['quantity'] and buy_offer['quantity']:
@@ -210,8 +211,8 @@ async def insert_arbitrage_data(buy_offer, sell_offer):
             logger.warning("Integrity error while inserting arbitrage.")
 
 
+# Fetch arbitrage data with related offers, items and messages.
 async def get_arbitrage_message_item_data_for_bot(arbitrage_id):
-    """Fetch arbitrage data with related offers, items and messages."""
     query = (
         select(Arbitrage)
         .options(
@@ -230,7 +231,7 @@ async def get_arbitrage_message_item_data_for_bot(arbitrage_id):
     return result[0]
 
 
-# ---------------- Update / Delete ----------------
+# Update / Delete
 async def delete_offer_by_id(offer_id):
     async with session_factory() as session:
         query = delete(Offers).where(Offers.id == offer_id)
@@ -251,8 +252,7 @@ async def update_quantity_in_offer_by_id(offer_id, new_quantity):
         logger.info(f"Updated quantity for offer id={offer_id} to {new_quantity}")
 
 
-# ---------------- Utils ----------------
+# Normalize message text and return SHA-256 hash.
 def hash_message(text: str) -> str:
-    """Normalize message text and return SHA-256 hash."""
     normalized = text.strip().lower().encode('utf-8')
     return hashlib.sha256(normalized).hexdigest()
