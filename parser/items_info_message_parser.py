@@ -1,9 +1,5 @@
 import logging
-import asyncio
 import re
-from datetime import datetime, timezone
-from config import settings
-from telegram.tg_client import client
 from database.queries import insert_item_data
 
 # Logging
@@ -18,142 +14,39 @@ grade_pattern = re.compile(r'^.*?\n.*?\n.*?(\[[^\]]+\])')
 duration_pattern = re.compile(r"Время действия:\s*?([A-Za-zА-Яа-яЁё0-9 ]+)")
 duration_in_name_pattern = re.compile(r'\s*(\d+\s*\w+)$')
 duration_potion_pattern = re.compile(r"Действие:\s*?([A-Za-zА-Яа-яЁё0-9 ]+)")
-commands = [
-    ("/getequip", settings.equipment_last_id, "equipment"),
-    ("/getasset", settings.resource_last_id, "resource")
-]
 
-# Sends item info commands to telegram game_info_bot in sequence, handling rate limits and retries.
-async def items_info_command_printer(items_type_and_id_queue, async_flag):
 
-    logger.info("Starting item info command printer...")
-
-    for cmd, limit, item_type in commands:
-        logger.info(f"Processing command {cmd} up to ID {limit}")
-
-        for item_id in range(limit + 1):
-            # add current task to queue
-            items_type_and_id_queue.append({
-                "type": item_type,
-                "in_game_id": item_id,
-                "datetime": datetime.now(timezone.utc)
-            })
-
-            await client.send_message(settings.items_info_group_id, f"{cmd} {item_id}")
-            await asyncio.sleep(1)
-
-            # wait for response signal
-            while True:
-                try:
-                    await asyncio.wait_for(async_flag.wait(), timeout=60)
-                    async_flag.clear()
-
-                    if len(items_type_and_id_queue) != 0:
-                        await asyncio.sleep(20)
-                        items_type_and_id_queue.pop()
-                        items_type_and_id_queue.append({
-                            "type": item_type,
-                            "in_game_id": item_id,
-                            "datetime": datetime.now(timezone.utc)
-                        })
-                        await client.send_message(settings.items_info_group_id, f"{cmd} {item_id}")
-                    else:
-                        break
-
-                except asyncio.TimeoutError:
-                    logger.warning(f"Timeout for {cmd} {item_id}, retrying...")
-                    if len(items_type_and_id_queue) != 0:
-                        logger.debug(f"Queue size before pop: {len(items_type_and_id_queue)}")
-                        items_type_and_id_queue.pop()
-
-                    items_type_and_id_queue.append({
-                        "type": item_type,
-                        "in_game_id": item_id,
-                        "datetime": datetime.now(timezone.utc)
-                    })
-                    await client.send_message(settings.items_info_group_id, f"{cmd} {item_id}")
-
-    logger.info("Item info command printer finished.")
 
 # Parses incoming Telegram messages and extracts item info to store in DB.
 async def items_info_parser(event, items_type_and_id_queue, async_flag):
 
+    text = event.raw_text
     logger.debug(f"Received message: {event.raw_text[:100]}...")
 
-    if len(items_type_and_id_queue) == 0:
+    if not items_type_and_id_queue:
         logger.warning("Queue is empty — skipping message.")
         return
 
     # Telegram anti-spam warning
-    if event.raw_text == (
-        "⚠️ От вас поступает слишком много сообщений. Действие не будет выполнено.\n"
-        "Не отправляйте сообщения так часто."
-    ):
+    if is_rate_limit_message(text):
         logger.warning("Rate limit triggered — waiting before retry.")
         async_flag.set()
         return
 
     data = items_type_and_id_queue.pop()
 
-    # messages that mean item not found or not transferable
-    if (
-        event.raw_text == "❗️ Экипировка не найдена"
-        or event.raw_text == "❗️ Ресурс не найден"
-        or "Предмет нельзя передать" in event.raw_text
-    ):
+    # Messages that mean item not found or not transferable
+    if is_item_not_found(text):
         logger.debug("Item not found or not transferable.")
         async_flag.set()
         return
 
-    grade = None
-    duration = None
+    name, grade, duration = parse_name_grade_duration(data['type'], text)
 
-    # parse item name
-    if data['type'] == 'equipment' and equip_name_pattern.search(event.raw_text):
-        name = equip_name_pattern.search(event.raw_text).group(1).strip()
-
-    elif data['type'] == 'resource' and resource_name_pattern.search(event.raw_text):
-        if resource_name_pattern.search(event.raw_text).group(1).strip() == 'Рецепт':
-            match = resource_receipt_name_pattern.search(event.raw_text)
-            name = (match.group(1) + match.group(2)).strip()
-        elif resource_name_pattern.search(event.raw_text).group(1).strip() == 'Зелье':
-            match = resource_potion_name_pattern.search(event.raw_text)
-            name = (match.group(1) + match.group(2)).strip()
-            duration = duration_potion_pattern.search(event.raw_text).group(1).strip()
-        elif (
-            'Требуется для изучения навыка' in event.raw_text
-            or 'Требуется для изучения боевого приема' in event.raw_text
-        ):
-            name_without_split = resource_name_pattern.search(event.raw_text).group(1).strip()
-            name_with_split = name_without_split.rsplit(sep=' ', maxsplit=1)
-            if len(name_with_split) != 2 or len(name_with_split[1]) > 4:
-                name = name_without_split
-                grade = 'undefined'
-            else:
-                name, grade = name_with_split
-                grade = "[" + grade + "]"
-        else:
-            name = resource_name_pattern.search(event.raw_text).group(1).strip()
-
-    else:
+    if not name:
         logger.error("Unknown item type or regex mismatch.")
         async_flag.set()
         return
-
-    # parse grade/duration
-    if not grade:
-        grade = grade_pattern.search(event.raw_text).group(1).strip() if grade_pattern.search(event.raw_text) else 'undefined'
-
-    if not duration:
-        duration = duration_pattern.search(event.raw_text).group(1).strip() if duration_pattern.search(event.raw_text) else 'undefined'
-
-    # check duration in name
-    temp_duration = duration_in_name_pattern.search(name)
-    if temp_duration:
-        name = re.sub(duration_in_name_pattern, '', name).strip()
-
-    if duration == 'undefined' and temp_duration:
-        duration = temp_duration.group(1).strip()
 
     data_dict = {
         "item_name": name,
@@ -171,3 +64,80 @@ async def items_info_parser(event, items_type_and_id_queue, async_flag):
         logger.error(f"Failed to insert item {name}: {e}")
 
     async_flag.set()
+
+
+def is_rate_limit_message(text):
+    return text ==(
+        "⚠️ От вас поступает слишком много сообщений. Действие не будет выполнено.\n"
+        "Не отправляйте сообщения так часто."
+    )
+
+
+def is_item_not_found(text):
+    return (
+        text == "❗️ Экипировка не найдена"
+        or text == "❗️ Ресурс не найден"
+        or "Предмет нельзя передать" in text
+    )
+
+
+def parse_name_grade_duration(item_type, text):
+    name = None
+    grade = None
+    duration = None
+
+    # Name
+    if item_type == 'equipment':
+        match = equip_name_pattern.search(text)
+        if match:
+            name = match.group(1).strip()
+
+    elif item_type == 'resource':
+        match = resource_name_pattern.search(text)
+        if not match:
+            return None, None, None
+
+        base_name = match.group(1).strip()
+
+        if base_name == 'Рецепт':
+            m = resource_receipt_name_pattern.search(text)
+            name = (m.group(1) + m.group(2)).strip()
+
+        elif base_name == 'Зелье':
+            m = resource_potion_name_pattern.search(text)
+            name = (m.group(1) + m.group(2)).strip()
+            duration = duration_potion_pattern.search(text).group(1).strip()
+
+        elif (
+            'Требуется для изучения навыка' in text
+            or 'Требуется для изучения боевого приема' in text
+        ):
+            name_with_split = base_name.rsplit(sep=' ', maxsplit=1)
+            if len(name_with_split) != 2 or len(name_with_split[1]) > 4:
+                name = base_name
+                grade = 'undefined'
+            else:
+                name, grade = name_with_split
+                grade = "[" + grade + "]"
+        else:
+            name = base_name
+
+    # Grade
+    if grade is None:
+        m = grade_pattern.search(text)
+        grade = m.group(1).strip() if m else "undefined"
+
+    # Duration
+    if duration is None:
+        m = duration_pattern.search(text)
+        duration = m.group(1).strip() if m else "undefined"
+
+    # Check duration in name
+    temp_duration = duration_in_name_pattern.search(name)
+    if temp_duration:
+        name = re.sub(duration_in_name_pattern, '', name).strip()
+
+    if duration == 'undefined' and temp_duration:
+        duration = temp_duration.group(1).strip()
+
+    return name, grade, duration

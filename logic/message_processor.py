@@ -3,7 +3,7 @@ import logging
 from database.models import OfferType, CurrencyType
 from database.queries import insert_offer_data_and_return_id, get_items, insert_message_data_and_return_id
 from logic.arbitrage import arbitrage_finder
-from logic.matcher import find_top5_item_matches, filter_by_grade_and_duration
+from logic.items_matcher import find_top5_item_matches, filter_by_grade_and_duration
 from parser.group_message_parser import create_request
 
 logger = logging.getLogger(__name__)

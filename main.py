@@ -2,7 +2,8 @@ import asyncio
 import logging
 
 from database.queries import init_db, clear_db_without_items
-from logic.processor import message_handler
+from logic.items_renew import items_in_file_renew
+from logic.message_processor import message_handler
 
 # Telegram imports
 from telegram.group_listener import trade_group_listener
@@ -45,6 +46,7 @@ if __name__ == "__main__":
     try:
         logger.info("Starting async event loop...")
         asyncio.run(trade_group_message_handler())
+        # asyncio.run(items_in_file_renew())
     except KeyboardInterrupt:
         logger.warning("🛑 Application stopped manually (Ctrl+C)")
     except Exception as e:
