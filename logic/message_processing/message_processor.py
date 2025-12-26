@@ -49,7 +49,7 @@ async def process_offer(items_in_db, response, message_id):
         if not best_match: continue
 
         db_item = items_in_db[best_match["index"]]
-        logger.info(f"Matched '{entry['item_name']}' → '{db_item.item_name}' ({best_match["score"]:.1f}%)")
+        logger.info(f"Matched '{entry['item_name']}' → '{db_item.item_name}' ({best_match['score']:.1f}%)")
 
         # Prepare and insert offer data
         offer_data = {

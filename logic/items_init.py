@@ -2,8 +2,10 @@ import logging
 import asyncio
 from config import settings
 from collections import deque
+
+from database.queries import init_db, clear_db
 from telegram.items_info_listener import items_listener
-from logic.commands_printer import items_info_command_printer
+from logic.items_initialization.commands_printer import items_info_command_printer
 from telegram.tg_client import start_client, run_client_forever
 
 logger = logging.getLogger(__name__)
@@ -12,6 +14,9 @@ logger = logging.getLogger(__name__)
 async def items_in_file_renew():
 
     logger.info("Items data renewal in database started")
+
+    await clear_db()
+    await init_db()
 
     clear_file()
     items_type_and_id_queue = deque(maxlen=1)

@@ -30,7 +30,7 @@ def filter_by_grade_and_duration(top5, entry, items_in_db):
 
     best_match = top5[0]
     if best_match["score"] < 80:
-        logger.info(f"Low match score ({best_match["score"]:.1f}%) — item not inserted: {entry['item_name']}")
+        logger.info(f"Low match score ({best_match['score']:.1f}%) — item not inserted: {entry['item_name']}")
         return None
     else:
         return top5[0]
