@@ -84,7 +84,7 @@ async def insert_item_data(data):
         try:
             session.add(new_item)
             await session.commit()
-            logger.info(f"Inserted item: {new_item.item_name}")
+            logger.info(f"Inserted item: {data['item_name']}")
         except IntegrityError:
             await session.rollback()
             logger.warning("Integrity error while inserting item (duplicate or invalid key).")

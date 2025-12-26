@@ -8,10 +8,10 @@ from config import settings
 # Logging
 logger = logging.getLogger(__name__)
 
-# OpenAI (DeepSeek) client
+# OpenAI client
 client = AsyncOpenAI(
-    api_key=settings.deepseek_api_key,
-    base_url=settings.deepseek_base_url
+    api_key=settings.llm_api_key,
+    base_url=settings.llm_base_url
 )
 
 
@@ -27,7 +27,7 @@ def contains_buy_sell(text: str, threshold: int = 85) -> bool:
     return False
 
 
-# Sends message to DeepSeek model and parses response into structured JSON.
+# Sends message to llm model and parses response into structured JSON.
 async def create_request(message: str):
 
     if not contains_buy_sell(message):
@@ -37,7 +37,7 @@ async def create_request(message: str):
     logger.info("Sending message to DeepSeek model for parsing...")
 
     response = await client.chat.completions.create(
-        model="deepseek-chat",
+        model=settings.llm_model,
         temperature=1.0,
         response_format={"type": "json_object"},
         messages=[

@@ -18,7 +18,6 @@ async def items_in_file_renew():
     await clear_db()
     await init_db()
 
-    clear_file()
     items_type_and_id_queue = deque(maxlen=1)
     async_flag = asyncio.Event()
     # await init_db()
@@ -28,6 +27,3 @@ async def items_in_file_renew():
     await run_client_forever()
 
 
-def clear_file():
-    with open(settings.file_path, "w", encoding="utf-8") as file:
-        print("ok")

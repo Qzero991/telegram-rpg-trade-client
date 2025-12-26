@@ -1,0 +1,37 @@
+services:
+  collector:
+    build: .
+    container_name: telegram-rpg-collector
+    env_file:
+      - .env
+    environment:
+      APP_MODE: collector
+    depends_on:
+      - postgres
+    restart: "no"
+
+  worker:
+    build: .
+    container_name: telegram-rpg-worker
+    env_file:
+      - .env
+    environment:
+      APP_MODE: worker
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    container_name: telegram-rpg-postgres
+    environment:
+      POSTGRES_DB: telegram_rpg
+      POSTGRES_USER: telegram
+      POSTGRES_PASSWORD: telegram
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

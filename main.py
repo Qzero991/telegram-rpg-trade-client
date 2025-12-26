@@ -1,14 +1,8 @@
 import asyncio
 import logging
-
-from database.queries import init_db, clear_db_without_items
-from logic.items_renew import items_in_file_renew
-from logic.message_processor import message_handler
-
-# Telegram imports
-from telegram.group_listener import trade_group_listener
-from telegram.tg_client import run_client_forever
-from telegram.bot.arbitrage_notification_bot import bot_execution
+from config import settings
+from logic.items_init import items_in_file_renew
+from logic.messages_handler import run_messages_handler
 
 
 # Logging setup
@@ -22,34 +16,25 @@ logger.info("Application startup initiated")
 
 
 
-# Main application workflow
-async def trade_group_message_handler():
-
-    await clear_db_without_items()
-    await init_db()
-
-    offer_message_queue = asyncio.Queue()
-
-    # Launch concurrent async tasks
-    client_run_task = asyncio.create_task(run_client_forever())
-    listener_task = asyncio.create_task(trade_group_listener(offer_message_queue))
-    notification_bot_task = asyncio.create_task(bot_execution())
-
-    logger.info("All async tasks launched (client, listener, bot)")
-
-    await message_handler(offer_message_queue)
-
-
-
-# Entrypoint
 if __name__ == "__main__":
     try:
         logger.info("Starting async event loop...")
-        asyncio.run(trade_group_message_handler())
-        # asyncio.run(items_in_file_renew())
+
+        if settings.app_mode == "collector":
+            logger.info("Running in ITEMS COLLECTOR mode")
+            asyncio.run(items_in_file_renew())
+
+        elif settings.app_mode == "worker":
+            logger.info("Running in TRADE WORKER mode")
+            asyncio.run(run_messages_handler())
+
+        else:
+            raise ValueError(f"Unknown APP_MODE: {settings.app_mode}")
+
     except KeyboardInterrupt:
         logger.warning("🛑 Application stopped manually (Ctrl+C)")
     except Exception as e:
         logger.exception(f"Unexpected error: {e}")
     finally:
         logger.info("Application terminated")
+

@@ -66,11 +66,15 @@ async def items_info_parser(event, items_type_and_id_queue, async_flag):
     async_flag.set()
 
 
+
+
 def is_rate_limit_message(text):
     return text ==(
         "⚠️ От вас поступает слишком много сообщений. Действие не будет выполнено.\n"
         "Не отправляйте сообщения так часто."
     )
+
+
 
 
 def is_item_not_found(text):
@@ -79,6 +83,7 @@ def is_item_not_found(text):
         or text == "❗️ Ресурс не найден"
         or "Предмет нельзя передать" in text
     )
+
 
 
 def parse_name_grade_duration(item_type, text):
