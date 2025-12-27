@@ -16,6 +16,8 @@ client = TelegramClient(
 async def start_client():
     if not client.is_connected():
         await client.start()
+        me = await client.get_me()
+        settings.my_id = me.id
         logger.info("Telegram client started.")
     else:
         logger.debug("Telegram client already connected.")

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     telegram_session_name: str
     telegram_bot_token: str
     trade_group_id: int
-    my_id: str
+    my_id: int | None = None
     items_info_group_id: str
     equipment_last_id: int
     resource_last_id: int
