@@ -1,4 +1,4 @@
-# 🤖 Telegram RPG-game Trade Client
+# Telegram RPG-game Trade Client
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -9,7 +9,7 @@
 
 ---
 
-## 📌 Table of Contents
+## Table of Contents
 
 * [About the Project](#-about-the-project)
 * [Features](#-features)
@@ -27,7 +27,7 @@
 
 ---
 
-## 📝 About the Project
+## About the Project
 
 **Telegram RPG-game Trade Client** is an automated system for analyzing player-driven trade markets in Telegram-based RPG games.
 
@@ -45,47 +45,47 @@ The client connects to Telegram, listens to new messages in a trading chat, extr
 
 ---
 
-## ✨ Features
+## Features
 
 
-**🧠 LLM-powered trade parsing**<br>
+** LLM-powered trade parsing**<br>
 -- Extracts structured trade offers from completely unstructured Telegram messages.
 
-**🌐 OpenAI-compatible model support**<br>
+** OpenAI-compatible model support**<br>
 -- Works with any OpenAI-compatible API (e.g. DeepSeek, OpenAI, or local models).
 
-**📈 Arbitrage detection engine**<br>
+** Arbitrage detection engine**<br>
 -- Automatically matches buy/sell offers in real-time and calculates potential profitability.
 
-**🤖 Integrated Telegram bot**<br>
+** Integrated Telegram bot**<br>
 -- Clean notifications with interactive controls to manage, edit, or delete detected entries.
 
-**🛠 Two application modes**<br>
+** Two application modes**<br>
 -- `collector` for initializing the database <br>
 -- `worker` for active market monitoring.
 
-**🐳 Docker & Docker Compose support**<br>
+** Docker & Docker Compose support**<br>
 -- One-command startup with a fully isolated environment and database.
 
-**🗄 PostgreSQL-backed persistence**<br>
+** PostgreSQL-backed persistence**<br>
 -- Reliable storage for items, trade history, and detected arbitrage opportunities.
 
-**🧱 Modular architecture**<br>
+** Modular architecture**<br>
 -- Designed as a template — easily adapt the client for other games or data sources.---
 
 
 ___
 
-## ⚙️ How It Works
+## How It Works
 
 The system operates in two distinct modes. Both modes share a foundation of database initialization and Telegram connectivity.
 
 ---
 
-### 📥 Collector Mode: Database Initialization
+### Collector Mode: Database Initialization
 This mode is used to build a reference library of all game items. 
 
-> ⚠️You need to use this mode first, to initialize database, then you can use Worker mode
+> You need to use this mode first, to initialize database, then you can use Worker mode
 
 **The Workflow:**
 1.  **DB Sync:** Connects to PostgreSQL and initializes the schema.
@@ -96,7 +96,7 @@ This mode is used to build a reference library of all game items.
 
 ---
 
-### 🛠 Worker Mode: Market Analysis & Arbitrage
+### Worker Mode: Market Analysis & Arbitrage
 The core engine for real-time trade monitoring and profit detection.
 
 **The Workflow:**
@@ -115,7 +115,7 @@ The core engine for real-time trade monitoring and profit detection.
 
 ---
 
-## 🤖 Telegram Bot Control
+## Telegram Bot Control
 
 The Telegram bot runs **in parallel** with the main application and provides:
 * **Real-time notifications** about arbitrage opportunities.
@@ -129,7 +129,7 @@ The Telegram bot runs **in parallel** with the main application and provides:
 </p>
 
 ---
-## 🗄 Database
+## Database
 
 The project uses **PostgreSQL** as the primary data store.
 
@@ -141,9 +141,9 @@ The database is responsible for:
 
 The schema is automatically initialized on application startup.
 
-> ⚠️ The database must be initialized using **Collector mode** before running the Worker.
+>  The database must be initialized using **Collector mode** before running the Worker.
 
-### 📊 Database Schema
+### Database Schema
 
 Below is a simplified overview of the database structure.
 
@@ -153,31 +153,31 @@ Below is a simplified overview of the database structure.
 
 
 ___
-## 📦 Requirements
+## Requirements
 
 Before running the project, make sure the following software is installed:
 
 ### Required Software
 - **Docker** (recommended)  
-  👉 https://docs.docker.com/get-docker/
+   https://docs.docker.com/get-docker/
 
 - **Docker Compose**  
-  👉 Included with Docker Desktop
+   Included with Docker Desktop
 
 ### Optional (for local / non-Docker usage)
 - **Python 3.11+**  
-  👉 https://www.python.org/downloads/
+   https://www.python.org/downloads/
 
 - **PostgreSQL 16+**  
-  👉 https://www.postgresql.org/download/
+   https://www.postgresql.org/download/
 
 ---
 
-## 🔐 Required Credentials & API Keys
+## Required Credentials & API Keys
 
 To run the project, you need to generate several credentials manually.
 
-### 🧠 LLM (OpenAI-compatible) API
+### LLM (OpenAI-compatible) API
 You need:
 - API Key
 - Base URL
@@ -190,30 +190,30 @@ Examples:
 
 ---
 
-### 📱 Telegram MTProto Credentials
+### Telegram MTProto Credentials
 Used for connecting as a Telegram client.
 
 You need:
 - `TELEGRAM_API_ID`
 - `TELEGRAM_API_HASH`
 
-📖 Official guide:  
+Official guide:  
 https://my.telegram.org/apps
 
 ---
 
-### 🤖 Telegram Bot Token
+### Telegram Bot Token
 Used for notifications and interactive controls.
 
 You need:
 - `TELEGRAM_BOT_TOKEN`
 
-📖 Official guide:  
+Official guide:  
 https://core.telegram.org/bots#how-do-i-create-a-bot
 
 ---
 
-## ⚙️ Environment Variables
+## Environment Variables
 
 Create a `.env` file (or copy from `.env-example`) and configure the following variables:
 
@@ -236,17 +236,17 @@ Create a `.env` file (or copy from `.env-example`) and configure the following v
 ___
 
 
-## 🚀 Running the Project
+## Running the Project
 
 The system is designed to run in two stages: first, the **Collector** (to build the item database), and then the **Worker** (to monitor the market).
 
 ---
 
-## 🐳 Running with Docker (Recommended)
+## Running with Docker (Recommended)
 
 Docker is the preferred method as it automatically handles PostgreSQL, dependencies, and environment isolation.
 
-### 🔹 Phase 1: Initial Database Setup
+### Phase 1: Initial Database Setup
 This step is **mandatory** and must be performed once to populate the database with game items.
 
 1.  **Prepare Environment:** Create a `.env` file from the template.
@@ -255,13 +255,13 @@ This step is **mandatory** and must be performed once to populate the database w
     docker-compose up --build collector
     ```
 
-> **🔍 What's happening?**
+> **What's happening?**
 > * Starts the **PostgreSQL** container and initializes tables.
 > * Connects to Telegram via **MTProto** to query the Game Bot.
 > * Scrapes, parses, and saves all items to the `items` table.
 > * **Action required:** Once the logs show the process is finished, stop the container (**Ctrl+C**).
 
-### 🔹 Phase 2: Live Market Monitoring
+### Phase 2: Live Market Monitoring
 After the items are saved, you can start the continuous monitoring service.
 
 1.  **Launch Worker:**
@@ -271,13 +271,13 @@ After the items are saved, you can start the continuous monitoring service.
 
 **In this mode:** The system listens to trade chats, uses LLM to analyze messages, and sends real-time arbitrage alerts to your Telegram bot.
 
-### 🔄 Maintenance
+### Maintenance
 * **Stop Services:** `docker-compose down`
 * **Hard Reset:** `docker-compose down -v` (Warning: This deletes all database data).
 
 ---
 
-## 🖥 Local Setup (Advanced)
+## Local Setup (Advanced)
 
 Use this method if you prefer to manage your own Python environment and a local PostgreSQL instance.
 
@@ -306,7 +306,7 @@ Use this method if you prefer to manage your own Python environment and a local 
 
 ### 2. Execution Steps
 
-#### 📥 Step A: Run Collector (One-time setup)
+#### Step A: Run Collector (One-time setup)
 Used to initialize the database items.
 1.  Set `APP_MODE=collector` in your `.env`.
 2.  Execute:
@@ -314,7 +314,7 @@ Used to initialize the database items.
     python main.py
     ```
 
-#### ⚙️ Step B: Run Worker (Live monitoring)
+#### Step B: Run Worker (Live monitoring)
 Switch to market monitoring once the database is ready.
 1.  Set `APP_MODE=worker` in your `.env`.
 2.  Execute:
@@ -324,7 +324,7 @@ Switch to market monitoring once the database is ready.
 
 ---
 
-## 🛠 Technologies Used
+## Technologies Used
 
 | Category | Technology |
 | :--- | :--- |
@@ -337,6 +337,6 @@ Switch to market monitoring once the database is ready.
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the **MIT License**.
