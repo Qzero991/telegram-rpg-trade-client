@@ -48,29 +48,29 @@ The client connects to Telegram, listens to new messages in a trading chat, extr
 ## Features
 
 
-** LLM-powered trade parsing**<br>
+**LLM-powered trade parsing**<br>
 -- Extracts structured trade offers from completely unstructured Telegram messages.
 
-** OpenAI-compatible model support**<br>
+**OpenAI-compatible model support**<br>
 -- Works with any OpenAI-compatible API (e.g. DeepSeek, OpenAI, or local models).
 
-** Arbitrage detection engine**<br>
+**Arbitrage detection engine**<br>
 -- Automatically matches buy/sell offers in real-time and calculates potential profitability.
 
-** Integrated Telegram bot**<br>
+**Integrated Telegram bot**<br>
 -- Clean notifications with interactive controls to manage, edit, or delete detected entries.
 
-** Two application modes**<br>
+**Two application modes**<br>
 -- `collector` for initializing the database <br>
 -- `worker` for active market monitoring.
 
-** Docker & Docker Compose support**<br>
+**Docker & Docker Compose support**<br>
 -- One-command startup with a fully isolated environment and database.
 
-** PostgreSQL-backed persistence**<br>
+**PostgreSQL-backed persistence**<br>
 -- Reliable storage for items, trade history, and detected arbitrage opportunities.
 
-** Modular architecture**<br>
+**Modular architecture**<br>
 -- Designed as a template — easily adapt the client for other games or data sources.---
 
 
